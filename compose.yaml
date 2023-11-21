@@ -1,0 +1,65 @@
+version: "3.4"
+
+services:
+  back-php:
+    build:
+      context: ./back-php
+      target: phpserver
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    tty: true
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-root}:${MYSQL_ROOT_PASSWORD:-!ChangeMe!}@database:3306/${MYSQL_DATABASE:-bordeaux_hackaton}?serverVersion=${MYSQL_VERSION:-8.0.3}&charset=${MYSQL_CHARSET:-utf8mb4}
+      DB_USER: ${USER_NAME:-root}
+      DB_PASSWORD: ${USER_PASSWORD:-!ChangeMe!}
+      DB_HOST: ${DATABASE_SUBDOMAIN_NAME:-database}
+      DB_NAME: ${DB_NAME:-bordeaux_hackaton}
+    volumes:
+        - ./back-php:/var/www
+    ports:
+      # HTTP
+      - target: 80
+        published: 8000
+        protocol: tcp
+
+  front-js:
+    build:
+      context: ./front-js
+      target: dev
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./front-js:/srv/app
+    tty: true
+    ports:
+      # HTTP
+      - target: 5173
+        published: 5173
+        protocol: tcp
+
+  database:
+    image: mysql
+    ports:
+      - target: 3306
+        published: 3306
+        protocol: tcp
+    restart: always
+    environment:
+      - MYSQL_DATABASE=bordeaux_hackaton
+      - MYSQL_ROOT_PASSWORD=!ChangeMe!
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-uroot", "-prootpassword"] # Command to check health.
+      interval: 5s # Interval between health checks.
+      timeout: 5s # Timeout for each health checking.
+      retries: 20 # Hou many times retries.
+      start_period: 10s
+
+volumes:
+  caddy_data:
+  caddy_config:
+  db_data:
